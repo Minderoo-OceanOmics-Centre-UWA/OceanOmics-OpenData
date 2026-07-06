@@ -146,39 +146,79 @@ Arripis_georgianus/
 
 # OceanOmics eDNA
 
-The OceanOmics eDNA data aims to learn how to use environmental DNA (eDNA) to assess ecosystem health. Its main product is metabarcoding raw reads and metagenomics raw reads.
+The OceanOmics eDNA data aims to learn how to use environmental DNA (eDNA) to assess ecosystem health. Its main products are metabarcoding and metagenomics raw reads, and processed metabarcoding outputs including ASVs and their assigned taxonomy.
 
-The data is structured by OceanOmics project (often but not always a voyage), several FASTQ files per OceanOmics expedition (voyage). The S3 bucket contains one folder per project code, with each project folder containing paired end reads of every sample of the project. Each project is split into several folders, one folder per chosen assay (12S, 16S, etc. pp.). Each assay contains one folder named `Unknown` which contains demultiplexed reads that could not be assigned to a known barcode-pair.
+The data is structured by OceanOmics project (often but not always a voyage), then by pipeline run, then by assay. The S3 bucket contains one folder per project, with each project folder containing a folder per pipeline run. The pipeline run folder name encodes the [`OceanOmics-amplicon-nf`](https://github.com/Minderoo-OceanOmics-Centre-UWA/OceanOmics-amplicon-nf) pipeline version, the curated reference database version, and the year/month the analysis was run. Each pipeline run is split into several folders, one folder per chosen assay (16SFishD, MiFishUE2, etc.):
 
-For example,
+```
+{project}/{amp-vX.Y.Z_curdb-vA.B.C_YYYYMon}/{assay}/...
+```
+
+For example, `OcOm_2513/amp-v1.3.2_curdb-v1.0.1_2026JUN/16SFishD/...`.
+
+Within each assay folder, numbered subfolders represent sequential stages of
+the pipeline (demultiplexing/QC → denoising → curation → taxonomy →
+filtering/reporting):
 
 ```
 .
-└── V10_CKI_P1
-    ├── 12S
-    │   ├── V10_CKI_V_6_1.R1.fq.gz
-    │   ├── V10_CKI_V_6_1.R2.fq.gz
-    │   ├── V10_CKI_V_6_2.R1.fq.gz
-    │   ├── V10_CKI_V_6_2.R2.fq.gz
-    │   ├── Unknown
-    │   │   ├── F10-F10.R1.fq.gz
-    │   │   ├── F10-F10.R2.fq.gz
-    │   │   ├── F10-F11.R1.fq.gz
-    │   │   ├── F10-F11.R2.fq.gz
-    |   |   ├── ..... (more libraries)
-    |   ..... (more libraries)
-    ├── 16S
-    │   ├── V10_CKI_V_6_1.R1.fq.gz
-    │   ├── V10_CKI_V_6_1.R2.fq.gz
-    │   ├── V10_CKI_V_6_2.R1.fq.gz
-    │   ├── V10_CKI_V_6_2.R2.fq.gz
-    │   ├── Unknown
-    │   │   ├── F10-F10.R1.fq.gz
-    │   │   ├── F10-F10.R2.fq.gz
-    │   │   ├── F10-F11.R1.fq.gz
-    │   │   ├── F10-F11.R2.fq.gz
-    |   |   ├── ..... (more libraries)
-    |   ..... (more libraries)
+└── OcOm_2513
+    └── amp-v1.3.2_curdb-v1.0.1_2026JUN
+        ├── 16SFishD
+        │   ├── 01-cutadapt
+        │   │   ├── all-primers-trimmed
+        │   │   │   └── *.R1/R2.fq.gz          # reads after primer trimming
+        │   │   ├── assigned
+        │   │   │   └── *.R1/R2.fq.gz          # demultiplexed reads, before primer trimming
+        │   │   └── unknown
+        │   │       └── Unknown
+        │   │           └── *.R1/R2.fq.gz      # reads not assignable to a sample/barcode pair
+        │   ├── 01-fastqc
+        │   │   └── *_fastqc.html / *_fastqc.zip
+        │   ├── 01-seqkit_stats
+        │   │   └── raw/assigned/unknown/prefilter/final_seqkit_stats.txt
+        │   ├── 02-dada2
+        │   │   ├── plots/                     # QC plots + read-tracking stats
+        │   │   ├── *_asv.fa                   # ASV sequences
+        │   │   ├── *_asv_table.csv            # ASV count table
+        │   │   ├── *_asv_final_table.tsv      # ASV count table (transposed)
+        │   │   ├── *_lca_input.tsv            # ASV count table reformatted for the BLAST/LCA taxonomy step
+        │   │   └── *_seq_tab.rds              # DADA2 sequence table (ASV x sample counts), pre-chimera-removal
+        │   ├── 03-lulu
+        │   │   ├── *_asv_db/                  # BLAST db built from ASVs
+        │   │   ├── *_curated_asv.fa           # ASVs after LULU curation
+        │   │   ├── *_asv_curated_table.tab    # ASV count table after LULU curation
+        │   │   ├── *_asv_lulu_map.tab         # LULU stats: which ASVs were merged/collapsed into which
+        │   │   └── *_asv_match_list.txt       # ASV self-vs-self BLAST matchlist used as LULU input
+        │   ├── 04-blast
+        │   │   └── *_{curateddb,nt}_blastn_results.txt   # BLAST vs curated DB and vs NCBI nt
+        │   ├── 04-ocomnbc
+        │   │   └── *_{curateddb,nt}[_lulucurated]_ocom_nbc_output.tsv   # Naive Bayes classifier output
+        │   ├── 05-lca
+        │   │   └── *_{curateddb,nt}[_lulucurated]_{lca_with_fishbase_output,taxa_final,taxa_raw}.tsv
+        │   ├── 06-aquamap
+        │   │   └── *_aquamaps_{curateddb,nt}[_lulucurated].csv   # species occurrence probability by location
+        │   ├── 06-phyloseq
+        │   │   └── *_{curateddb,nt}[_lulucurated]_{final_taxa.tsv,flagged_phyloseq.rds}
+        │   ├── 07-faire
+        │   │   └── *_{curateddb,nt}[_lulucurated]_final_faire_metadata.xlsx   # FAIRe-formatted results + metadata
+        │   ├── 07-multiqc
+        │   │   └── *_multiqc_report.html      # aggregate pipeline QC report
+        │   ├── 07-pipeline_info
+        │   │   ├── *_samplesheet.valid.csv
+        │   │   ├── execution_report/execution_timeline/execution_trace/pipeline_dag (per run attempt)
+        │   │   └── software_versions.yml
+        │   └── 07-proportional_filter
+        │       └── *_{curateddb,nt}[_lulucurated]_{OTU_filtered,faire_taxa_filtered,phyloseq_filtered,phyloseq_taxa_filtered,proportional_stats}.*
+        ├── MarVer1
+        │   └── ... (same structure as above)
+        └── MiFishUE2
+            └── ... (same structure as above)
 ```
+
+Note: outputs from stage 04 onward are duplicated per taxonomy-assignment
+path — `curateddb` (OceanOmics curated reference database) vs `nt` (NCBI
+nt), each with and without a `_lulucurated` variant (before/after LULU
+curation) — so collaborators can compare results across these approaches.
 
 
