@@ -171,7 +171,24 @@ To download a single assay from that run, run
 
 Within each assay folder, numbered subfolders represent sequential stages of
 the pipeline (demultiplexing/QC → denoising → curation → taxonomy →
-filtering/reporting). 
+filtering/reporting):
+
+| Folder name | Folder contents |
+| ------------- | ------------- |
+| 01-cutadapt/ | Demultiplexed and primer-trimmed reads, plus an `unknown/Unknown/` folder of reads that couldn't be assigned to a sample |
+| 01-fastqc/ | FastQC read quality reports |
+| 01-seqkit_stats/ | Read count/length stats at each QC stage (raw, assigned, unknown, prefilter, final) |
+| 02-dada2/ | ASV sequences and count tables from the DADA2 denoising step, plus QC plots |
+| 03-lulu/ | ASV sequences and count table after LULU curation (collapsing likely-erroneous ASVs) |
+| 04-blast/ | BLASTn results of ASVs against the curated reference database and NCBI nt |
+| 04-ocomnbc/ | Output of the OceanOmics Naive Bayes Classifier |
+| 05-lca/ | Lowest Common Ancestor (LCA) taxonomy assignment output |
+| 06-aquamap/ | Aquamaps species-occurrence probabilities by sampling location |
+| 06-phyloseq/ | Phyloseq objects combining ASV counts, sample metadata and taxonomy |
+| 07-faire/ | Final results and metadata in FAIRe format |
+| 07-multiqc/ | Aggregate MultiQC report summarising QC across the whole pipeline run |
+| 07-pipeline_info/ | Nextflow execution reports/logs and the samplesheet used for the run |
+| 07-proportional_filter/ | Count tables and phyloseq objects after proportional filtering, with filtering stats |
 
 Example: Project OcOm_2513
 
