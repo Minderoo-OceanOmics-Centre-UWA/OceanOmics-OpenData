@@ -8,7 +8,7 @@ The OceanOmics Ocean Genomes data aims to sequence all marine vertebrates. Its m
 
 Data is stored in FASTA, BAM, and FASTQ format in the following buckets:
 
-    s3://minderoo-oceanomics/
+    s3://minderoo-oceanomics/species
 
 To list all species in the S3 bucket, run
 
@@ -148,17 +148,32 @@ Arripis_georgianus/
 
 The OceanOmics eDNA data aims to learn how to use environmental DNA (eDNA) to assess ecosystem health. Its main products are metabarcoding and metagenomics raw reads, and processed metabarcoding outputs including ASVs and their assigned taxonomy.
 
-The data is structured by OceanOmics project (often but not always a voyage), then by pipeline run, then by assay. The S3 bucket contains one folder per project, with each project folder containing a folder per pipeline run. The pipeline run folder name encodes the [`OceanOmics-amplicon-nf`](https://github.com/Minderoo-OceanOmics-Centre-UWA/OceanOmics-amplicon-nf) pipeline version, the curated reference database version, and the year/month the analysis was run. Each pipeline run is split into several folders, one folder per chosen assay (16SFishD, MiFishUE2, etc.):
-
-```
-{project}/{amp-vX.Y.Z_curdb-vA.B.C_YYYYMon}/{assay}/...
-```
+The S3 bucket is structured in three levels: project (folder per OceanOmics project, often but not always a voyage), pipeline run (folder per analysis run, named `amp-{pipeline version}_curdb-{database version}_{year}{month}` after the [`OceanOmics-amplicon-nf`](https://github.com/Minderoo-OceanOmics-Centre-UWA/OceanOmics-amplicon-nf) pipeline version and curated database version used), then assay (folder per assay, e.g. 16SFishD, MiFishUE2):
 
 For example, `OcOm_2513/amp-v1.3.2_curdb-v1.0.1_2026JUN/16SFishD/...`.
 
+Data is stored in the following bucket:
+
+    s3://minderoo-oceanomics/eDNA
+
+To list the pipeline runs available for a project, run
+
+    aws s3 ls --no-sign-request s3://minderoo-oceanomics/eDNA/OcOm_2513/
+
+To download all assays for a given pipeline run, run
+
+    aws s3 cp --no-sign-request s3://minderoo-oceanomics/eDNA/OcOm_2513/amp-v1.3.2_curdb-v1.0.1_2026JUN/ . --recursive
+
+To download a single assay from that run, run
+
+    aws s3 cp --no-sign-request s3://minderoo-oceanomics/eDNA/OcOm_2513/amp-v1.3.2_curdb-v1.0.1_2026JUN/16SFishD/ . --recursive
+
+
 Within each assay folder, numbered subfolders represent sequential stages of
 the pipeline (demultiplexing/QC → denoising → curation → taxonomy →
-filtering/reporting):
+filtering/reporting). 
+
+Example: Project OcOm_2513
 
 ```
 .
@@ -217,8 +232,9 @@ filtering/reporting):
 ```
 
 Note: outputs from stage 04 onward are duplicated per taxonomy-assignment
-path — `curateddb` (OceanOmics curated reference database) vs `nt` (NCBI
+path i.e. `curateddb` (OceanOmics curated reference database) vs `nt` (NCBI
 nt), each with and without a `_lulucurated` variant (before/after LULU
-curation) — so collaborators can compare results across these approaches.
+curation), so collaborators can compare results across these approaches.
+
 
 
